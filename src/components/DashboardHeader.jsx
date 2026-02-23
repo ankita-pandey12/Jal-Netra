@@ -23,7 +23,7 @@ export default function DashboardHeader({ stats }) {
                     </div>
                     <div>
                         <h1 className="text-lg font-bold tracking-tight gradient-text leading-tight">
-                            AquaGuard
+                            JalNetra
                         </h1>
                         <p className="text-[10px] text-slate-400 tracking-widest uppercase">
                             Drought Warning & Tanker Management
