@@ -84,7 +84,7 @@ export default function MapContainer({ locations, onDispatch }) {
                         maxWidth="320px"
                     >
                         <div className="p-3 bg-white/95 backdrop-blur-xl rounded-xl text-slate-800 border border-slate-200 shadow-2xl">
-                            <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                            <div className="flex items-center justify-between mb-1">
                                 <h3 className="font-bold text-lg">{selectedCity.name}</h3>
                                 <span
                                     className="px-2 py-0.5 rounded text-[10px] font-bold"
@@ -93,6 +93,18 @@ export default function MapContainer({ locations, onDispatch }) {
                                     WSI: {selectedCity.wsi.score}
                                 </span>
                             </div>
+
+                            {selectedCity.weather_live && (
+                                <div className="flex items-center gap-2 mb-3 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100">
+                                    <span className="text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Live Weather</span>
+                                    <div className="flex items-center gap-1 text-[10px] font-bold text-blue-800">
+                                        <img src={selectedCity.weather_live.icon} className="w-4 h-4" alt="weather" />
+                                        <span>{selectedCity.weather_live.temp_c}°C</span>
+                                        <span className="opacity-60">•</span>
+                                        <span>{selectedCity.weather_live.condition}</span>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="grid grid-cols-2 gap-3 mb-4">
                                 <MiniStats
