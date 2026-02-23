@@ -1,0 +1,184 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Aqua Guard – Government Portal Design System
+   ============================================================ */
+
+@theme {
+  /* --- Core Palette ----------------------------------------- */
+  --color-gov-900: #0c1929;
+  --color-gov-800: #0f2440;
+  --color-gov-700: #153157;
+  --color-gov-600: #1a3f6f;
+  --color-gov-500: #2563eb;
+  --color-gov-400: #3b82f6;
+  --color-gov-300: #60a5fa;
+  --color-gov-200: #93c5fd;
+  --color-gov-100: #dbeafe;
+  --color-gov-50: #eff6ff;
+
+  /* --- Status Colors ---------------------------------------- */
+  --color-critical: #ef4444;
+  --color-critical-bg: #450a0a;
+  --color-critical-border: #7f1d1d;
+  --color-stressed: #f59e0b;
+  --color-stressed-bg: #451a03;
+  --color-stressed-border: #78350f;
+  --color-stable: #10b981;
+  --color-stable-bg: #022c22;
+  --color-stable-border: #064e3b;
+
+  /* --- Accents ---------------------------------------------- */
+  --color-water-blue: #06b6d4;
+  --color-depot-amber: #f59e0b;
+
+  /* --- Fonts ------------------------------------------------ */
+  --font-display: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+
+/* ============================================================
+   Base Layer
+   ============================================================ */
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: var(--font-display);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background: var(--color-gov-900);
+    color: #e2e8f0;
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  #root {
+    height: 100vh;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-gov-800);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-gov-600);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-gov-500);
+  }
+}
+
+/* ============================================================
+   Leaflet Overrides
+   ============================================================ */
+.leaflet-container {
+  background: var(--color-gov-900) !important;
+  border-radius: 12px;
+}
+
+.leaflet-popup-content-wrapper {
+  background: var(--color-gov-800) !important;
+  color: #e2e8f0 !important;
+  border: 1px solid var(--color-gov-600) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5) !important;
+}
+
+.leaflet-popup-tip {
+  background: var(--color-gov-800) !important;
+  border-right: 1px solid var(--color-gov-600) !important;
+  border-bottom: 1px solid var(--color-gov-600) !important;
+}
+
+.leaflet-popup-close-button {
+  color: #94a3b8 !important;
+}
+.leaflet-popup-close-button:hover {
+  color: #fff !important;
+}
+
+/* ============================================================
+   Animations
+   ============================================================ */
+@keyframes pulse-critical {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.05); }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(30px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes dispatch-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.5); }
+  70% { box-shadow: 0 0 0 12px rgba(6, 182, 212, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0); }
+}
+
+.animate-pulse-critical {
+  animation: pulse-critical 2s ease-in-out infinite;
+}
+
+.animate-slide-in {
+  animation: slide-in-right 0.4s ease-out forwards;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out forwards;
+}
+
+.animate-dispatch-pulse {
+  animation: dispatch-pulse 1.5s ease-in-out infinite;
+}
+
+/* Staggered sidebar cards */
+.village-card:nth-child(1) { animation-delay: 0.05s; }
+.village-card:nth-child(2) { animation-delay: 0.10s; }
+.village-card:nth-child(3) { animation-delay: 0.15s; }
+.village-card:nth-child(4) { animation-delay: 0.20s; }
+.village-card:nth-child(5) { animation-delay: 0.25s; }
+.village-card:nth-child(6) { animation-delay: 0.30s; }
+.village-card:nth-child(7) { animation-delay: 0.35s; }
+.village-card:nth-child(8) { animation-delay: 0.40s; }
+.village-card:nth-child(9) { animation-delay: 0.45s; }
+.village-card:nth-child(10) { animation-delay: 0.50s; }
+
+/* Glass card */
+.glass-card {
+  background: linear-gradient(
+    135deg,
+    rgba(15, 36, 64, 0.7) 0%,
+    rgba(21, 49, 87, 0.5) 100%
+  );
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(37, 99, 235, 0.15);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #60a5fa 0%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
