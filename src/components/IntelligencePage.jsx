@@ -11,18 +11,49 @@ import {
     TrendingDown
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { fetchLocationWeather } from "../services/weatherService";
+import DispatchToast from "./DispatchToast";
 
 export default function IntelligencePage() {
-    const { locations, activeLayer, setActiveLayer } = useWater();
+    const { locations, activeLayer, setActiveLayer, updateWeatherData } = useWater();
     const [isSimulating, setIsSimulating] = useState(false);
+    const [toast, setToast] = useState(null);
     const navigate = useNavigate();
 
-    const handleLayerChange = (layer) => {
+    const fetchAllWeather = async () => {
         setIsSimulating(true);
-        setTimeout(() => {
-            setActiveLayer(layer);
+        const weatherResults = {};
+
+        try {
+            await Promise.all(locations.map(async (loc) => {
+                const weather = await fetchLocationWeather(loc.coords.lat, loc.coords.lng);
+                if (weather) {
+                    weatherResults[loc.id] = weather;
+                }
+            }));
+
+            updateWeatherData(weatherResults);
+            setToast({ type: "success", message: "Weather data for Nagpur District updated successfully." });
+            setTimeout(() => setToast(null), 4000);
+        } catch (error) {
+            setToast({ type: "error", message: "Failed to update weather data." });
+            setTimeout(() => setToast(null), 4000);
+        } finally {
             setIsSimulating(false);
-        }, 800);
+        }
+    };
+
+    const handleLayerChange = (layer) => {
+        if (layer === "WEATHER") {
+            fetchAllWeather();
+        } else {
+            setIsSimulating(true);
+            setTimeout(() => {
+                setActiveLayer(layer);
+                setIsSimulating(false);
+            }, 800);
+        }
+        setActiveLayer(layer);
     };
 
     const topRisk = [...locations]
@@ -111,8 +142,8 @@ export default function IntelligencePage() {
                             onClick={() => handleLayerChange(btn.id)}
                             disabled={isSimulating}
                             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeLayer === btn.id
-                                    ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
-                                    : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                                ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
+                                : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                                 } ${isSimulating ? "opacity-50 cursor-not-allowed" : ""}`}
                         >
                             {btn.icon}
@@ -144,6 +175,7 @@ export default function IntelligencePage() {
                     </div>
                 </div>
             </section>
+            {toast && <DispatchToast toast={toast} />}
         </div>
     );
 }

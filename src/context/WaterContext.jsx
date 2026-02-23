@@ -26,6 +26,27 @@ export function WaterProvider({ children }) {
         setLocations(data);
     }, []);
 
+    const updateWeatherData = (weatherResults) => {
+        setLocations(prev => prev.map(loc => {
+            const weather = weatherResults[loc.id];
+            if (!weather) return loc;
+
+            // Update metrics based on live weather
+            const updatedMetrics = {
+                ...loc.metrics,
+                current_rain: weather.precip_mm,
+                soil_moisture: weather.humidity // Proxy for moisture
+            };
+
+            const updatedLoc = { ...loc, metrics: updatedMetrics, weather_live: weather };
+            const wsi = calculateWSI(updatedLoc);
+            const demand = (loc.population * 40) + (loc.livestock * 30);
+            const priorityScore = (wsi.score * demand) / 1000;
+
+            return { ...updatedLoc, wsi, priorityScore: Math.round(priorityScore) };
+        }));
+    };
+
     const allocateTanker = (locationName) => {
         setFleet(prev => {
             const availableIndex = prev.findIndex(t => t.status === "AVAILABLE");
@@ -49,7 +70,8 @@ export function WaterProvider({ children }) {
             activeLayer,
             setActiveLayer,
             fleet,
-            allocateTanker
+            allocateTanker,
+            updateWeatherData
         }}>
             {children}
         </WaterContext.Provider>
