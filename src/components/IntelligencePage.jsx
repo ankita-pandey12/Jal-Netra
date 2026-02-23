@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useWater } from "../context/WaterContext";
 import MapContainer from "./MapContainer";
+import { fetchLocationGroundwater } from "../services/groundwaterApi";
+
 import {
     AlertTriangle,
     Satellite,

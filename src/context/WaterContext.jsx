@@ -7,6 +7,10 @@ const WaterContext = createContext();
 export function WaterProvider({ children }) {
     const [locations, setLocations] = useState([]);
     const [activeLayer, setActiveLayer] = useState("RISK"); // RISK, NDVI, WEATHER, GROUNDWATER
+
+    // 🌊 Groundwater state (NEW)
+    const [groundwaterData, setGroundwaterData] = useState({});
+
     const [fleet, setFleet] = useState([
         { id: "T-101", status: "AVAILABLE", assignment: null, lat: 21.1458, lng: 79.0882 },
         { id: "T-102", status: "EN-ROUTE", assignment: "Katol", lat: 21.2, lng: 78.8, otpScale: "4321", geofence: "SECURE" },
@@ -15,7 +19,7 @@ export function WaterProvider({ children }) {
         { id: "T-105", status: "AVAILABLE", assignment: null, lat: 21.1458, lng: 79.0882 },
     ]);
 
-    // Initialize data with WSI and Priority
+    // 🔹 Initialize locations with WSI & priority
     useEffect(() => {
         const data = nagpurData.map((loc) => {
             const wsi = calculateWSI(loc);
@@ -26,27 +30,66 @@ export function WaterProvider({ children }) {
         setLocations(data);
     }, []);
 
+    // 🌦 WEATHER UPDATE (UNCHANGED)
     const updateWeatherData = (weatherResults) => {
-        setLocations(prev => prev.map(loc => {
-            const weather = weatherResults[loc.id];
-            if (!weather) return loc;
+        setLocations(prev =>
+            prev.map(loc => {
+                const weather = weatherResults[loc.id];
+                if (!weather) return loc;
 
-            // Update metrics based on live weather
-            const updatedMetrics = {
-                ...loc.metrics,
-                current_rain: weather.precip_mm,
-                soil_moisture: weather.humidity // Proxy for moisture
-            };
+                const updatedMetrics = {
+                    ...loc.metrics,
+                    current_rain: weather.precip_mm,
+                    soil_moisture: weather.humidity // proxy
+                };
 
-            const updatedLoc = { ...loc, metrics: updatedMetrics, weather_live: weather };
-            const wsi = calculateWSI(updatedLoc);
-            const demand = (loc.population * 40) + (loc.livestock * 30);
-            const priorityScore = (wsi.score * demand) / 1000;
+                const updatedLoc = {
+                    ...loc,
+                    metrics: updatedMetrics,
+                    weather_live: weather
+                };
 
-            return { ...updatedLoc, wsi, priorityScore: Math.round(priorityScore) };
-        }));
+                const wsi = calculateWSI(updatedLoc);
+                const demand = (loc.population * 40) + (loc.livestock * 30);
+                const priorityScore = (wsi.score * demand) / 1000;
+
+                return { ...updatedLoc, wsi, priorityScore: Math.round(priorityScore) };
+            })
+        );
     };
 
+    // 🌊 GROUNDWATER UPDATE (NEW)
+    const updateGroundwaterData = (groundwaterResults) => {
+        setGroundwaterData(groundwaterResults);
+
+        setLocations(prev =>
+            prev.map(loc => {
+                const groundwater = groundwaterResults[loc.id];
+                if (!groundwater) return loc;
+
+                const updatedMetrics = {
+                    ...loc.metrics,
+                    groundwater_level: groundwater.gw_level_m,
+                    recharge_pct: groundwater.recharge_pct,
+                    soil_moisture: groundwater.soil_moisture_pct
+                };
+
+                const updatedLoc = {
+                    ...loc,
+                    metrics: updatedMetrics,
+                    groundwater_live: groundwater
+                };
+
+                const wsi = calculateWSI(updatedLoc);
+                const demand = (loc.population * 40) + (loc.livestock * 30);
+                const priorityScore = (wsi.score * demand) / 1000;
+
+                return { ...updatedLoc, wsi, priorityScore: Math.round(priorityScore) };
+            })
+        );
+    };
+
+    // 🚚 Tanker allocation (UNCHANGED)
     const allocateTanker = (locationName) => {
         setFleet(prev => {
             const availableIndex = prev.findIndex(t => t.status === "AVAILABLE");
@@ -57,7 +100,7 @@ export function WaterProvider({ children }) {
                 ...newFleet[availableIndex],
                 status: "EN-ROUTE",
                 assignment: locationName,
-                geofence: "SECURE", // Simulated
+                geofence: "SECURE",
                 otpScale: Math.floor(1000 + Math.random() * 9000).toString()
             };
             return newFleet;
@@ -71,7 +114,9 @@ export function WaterProvider({ children }) {
             setActiveLayer,
             fleet,
             allocateTanker,
-            updateWeatherData
+            updateWeatherData,
+            groundwaterData,          
+            updateGroundwaterData    
         }}>
             {children}
         </WaterContext.Provider>
