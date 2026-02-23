@@ -89,6 +89,24 @@ export function WaterProvider({ children }) {
         );
     };
 
+    // 🛰 NDVI PROXY UPDATE (NEW)
+    const updateNDVIProxy = (proxyResults) => {
+        setLocations(prev =>
+            prev.map(loc => {
+                const results = proxyResults[loc.id];
+                if (!results) return loc;
+
+                const updatedMetrics = {
+                    ...loc.metrics,
+                    soil_moisture_realtime: results.soilMoisture,
+                    wsi_realtime: results.wsi
+                };
+
+                return { ...loc, metrics: updatedMetrics };
+            })
+        );
+    };
+
     // 🚚 Tanker allocation (UNCHANGED)
     const allocateTanker = (locationName) => {
         setFleet(prev => {
@@ -115,8 +133,9 @@ export function WaterProvider({ children }) {
             fleet,
             allocateTanker,
             updateWeatherData,
-            groundwaterData,          
-            updateGroundwaterData    
+            groundwaterData,
+            updateGroundwaterData,
+            updateNDVIProxy
         }}>
             {children}
         </WaterContext.Provider>
