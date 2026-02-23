@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import Map, { Marker, Popup, NavigationControl } from 'react-map-gl/mapbox';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import { useState, useEffect } from 'react';
+import { MapContainer as LeafletMap, TileLayer, Marker, Popup, useMap, ZoomControl } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import {
     CloudRain,
     ArrowDown,
@@ -12,199 +13,182 @@ import {
 } from 'lucide-react';
 import { useWater } from '../context/WaterContext';
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+// --- Helper: Dynamic Marker Icons ---
+const createCustomIcon = (loc, activeLayer) => {
+    let color = loc.wsi.color;
+
+    if (activeLayer === "NDVI") {
+        const greenVal = 100 + (loc.metrics?.soil_moisture || 0) * 2;
+        color = `rgb(34, ${Math.min(255, greenVal)}, 94)`;
+    } else if (activeLayer === "WEATHER") {
+        color = "#3b82f6";
+    } else if (activeLayer === "GROUNDWATER") {
+        const gw = loc.metrics?.groundwater_level || 0;
+        if (gw > 40) color = "#dc2626";
+        else if (gw > 25) color = "#f59e0b";
+        else color = "#22c55e";
+    }
+
+    const html = `
+        <div class="relative group flex flex-col items-center">
+            <div class="w-10 h-10 rounded-full border-4 border-white shadow-2xl flex items-center justify-center transition-all hover:scale-125" 
+                 style="background-color: ${color};">
+                ${activeLayer === "WEATHER" ? `
+                    <span class="text-[8px] font-bold text-white uppercase">${loc.metrics?.current_rain ?? 0}mm</span>
+                ` : activeLayer === "GROUNDWATER" ? `
+                    <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C5.8 7 7 6 7 6s1.2-1 2.5-1c1.3 0 2.5 1 2.5 1s1.2 1 2.5 1c1.3 0 2.5-1 2.5-1s1.2-1 2.5-1c1.3 0 2.5 1 2.5 1"></path><path d="M2 12c.6.5 1.2 1 2.5 1 1.3 0 2.5-1 2.5-1s1.2-1 2.5-1c1.3 0 2.5 1 2.5 1s1.2 1 2.5 1c1.3 0 2.5-1 2.5-1s1.2-1 2.5-1c1.3 0 2.5 1 2.5 1"></path><path d="M2 18c.6.5 1.2 1 2.5 1 1.3 0 2.5-1 2.5-1s1.2-1 2.5-1c1.3 0 2.5 1 2.5 1s1.2 1 2.5 1c1.3 0 2.5-1 2.5-1s1.2-1 2.5-1c1.3 0 2.5 1 2.5 1"></path></svg>
+                ` : ''}
+            </div>
+            <div class="mt-2 bg-white px-3 py-1 rounded-xl text-[10px] font-extrabold text-slate-800 shadow-md">
+                ${loc.name}
+            </div>
+        </div>
+    `;
+
+    return L.divIcon({
+        className: 'custom-marker',
+        html: html,
+        iconSize: [40, 60],
+        iconAnchor: [20, 40],
+        popupAnchor: [0, -40],
+    });
+};
+
+// --- Map View Controller ---
+function MapController({ viewState }) {
+    const map = useMap();
+    useEffect(() => {
+        map.setView([viewState.latitude, viewState.longitude], viewState.zoom);
+    }, [viewState, map]);
+    return null;
+}
 
 export default function MapContainer({ locations, onDispatch }) {
     const { activeLayer } = useWater();
-    const [selectedCity, setSelectedCity] = useState(null);
-    const [viewState, setViewState] = useState({
+    const [viewState] = useState({
         latitude: 21.1458,
         longitude: 79.0882,
-        zoom: 9
+        zoom: 10
     });
 
-    // 🎨 Marker color logic
-    const getMarkerStyle = (loc) => {
-        if (activeLayer === "NDVI") {
-            const greenVal = 100 + (loc.metrics?.soil_moisture || 0) * 2;
-            return { backgroundColor: `rgb(34, ${Math.min(255, greenVal)}, 94)` };
-        }
-
-        if (activeLayer === "WEATHER") {
-            return { backgroundColor: "#3b82f6" };
-        }
-
-        if (activeLayer === "GROUNDWATER") {
-            const gw = loc.metrics?.groundwater_level || 0;
-            if (gw > 40) return { backgroundColor: "#dc2626" }; // red
-            if (gw > 25) return { backgroundColor: "#f59e0b" }; // orange
-            return { backgroundColor: "#22c55e" };              // green
-        }
-
-        return { backgroundColor: loc.wsi.color };
-    };
-
     return (
-        <div className="h-full relative rounded-3xl overflow-hidden border border-white/5 shadow-2xl">
-            <Map
-                {...viewState}
-                onMove={e => setViewState(e.viewState)}
+        <div className="w-full h-full bg-slate-100">
+            <LeafletMap
+                center={[viewState.latitude, viewState.longitude]}
+                zoom={viewState.zoom}
                 style={{ width: '100%', height: '100%' }}
-                mapStyle="mapbox://styles/mapbox/light-v11"
-                mapboxAccessToken={MAPBOX_TOKEN}
+                zoomControl={false}
+                attributionControl={false}
             >
-                <NavigationControl position="top-right" />
+                {/* Premium Dark Theme */}
+                <TileLayer
+                    url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                />
 
-                {/* MARKERS */}
+                <ZoomControl position="bottomright" />
+                <MapController viewState={viewState} />
+
                 {locations.map((loc) => (
                     <Marker
                         key={loc.id}
-                        latitude={loc.coords.lat}
-                        longitude={loc.coords.lng}
-                        anchor="bottom"
-                        onClick={e => {
-                            e.originalEvent.stopPropagation();
-                            setSelectedCity(loc);
-                        }}
+                        position={[loc.coords.lat, loc.coords.lng]}
+                        icon={createCustomIcon(loc, activeLayer)}
                     >
-                        <div className="group cursor-pointer flex flex-col items-center">
-                            <div
-                                className="w-10 h-10 rounded-full border-4 border-white shadow-2xl flex items-center justify-center transition-all hover:scale-125"
-                                style={getMarkerStyle(loc)}
-                            >
-                                {activeLayer === "WEATHER" && (
-                                    <span className="text-[8px] font-bold text-white uppercase">
-                                        {loc.metrics?.current_rain ?? 0}mm
+                        <Popup className="custom-leaflet-popup">
+                            <div className="p-1 min-w-[240px]">
+                                <div className="flex justify-between items-center mb-2">
+                                    <h3 className="font-bold text-base text-slate-800">{loc.name}</h3>
+                                    <span
+                                        className="px-2 py-0.5 text-[9px] font-black rounded uppercase tracking-wider"
+                                        style={{
+                                            backgroundColor: `${loc.wsi.color}15`,
+                                            color: loc.wsi.color
+                                        }}
+                                    >
+                                        WSI: {loc.wsi.score}
                                     </span>
-                                )}
-                                {activeLayer === "GROUNDWATER" && (
-                                    <Waves className="w-4 h-4 text-white" />
-                                )}
-                            </div>
+                                </div>
 
-                            <div className="mt-2 bg-white px-3 py-1 rounded-xl text-[10px] font-extrabold text-slate-800 shadow opacity-0 group-hover:opacity-100">
-                                {loc.name}
+                                {/* Live Info Hub */}
+                                <div className="flex items-center gap-2 mb-3 px-2 py-1.5 rounded-xl border bg-slate-50 border-slate-100">
+                                    {activeLayer === "GROUNDWATER" ? (
+                                        <>
+                                            <Waves className="w-3.5 h-3.5 text-blue-600" />
+                                            <span className="text-[10px] font-black text-blue-700 uppercase tracking-widest">GROUNDWATER TELEMETRY</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CloudSun className="w-3.5 h-3.5 text-amber-600" />
+                                            <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">LIVE SATELLITE DATA</span>
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Stats Matrix */}
+                                <div className="grid grid-cols-2 gap-2 mb-4">
+                                    {activeLayer === "GROUNDWATER" ? (
+                                        <>
+                                            <MiniStats
+                                                icon={<ArrowDown className="w-3 h-3 text-red-500" />}
+                                                label="GW LVL"
+                                                value={`${loc.metrics?.groundwater_level ?? "—"}m`}
+                                            />
+                                            <MiniStats
+                                                icon={<Gauge className="w-3 h-3 text-amber-500" />}
+                                                label="RECHARGE"
+                                                value={`${loc.metrics?.recharge_pct ?? "—"}%`}
+                                            />
+                                            <MiniStats
+                                                icon={<MapPin className="w-3 h-3 text-indigo-500" />}
+                                                label="DEMAND"
+                                                value={`${(loc.demand / 1000).toFixed(0)}kL`}
+                                            />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <MiniStats
+                                                icon={<CloudRain className="w-3 h-3 text-blue-500" />}
+                                                label="PRECIP"
+                                                value={`${loc.metrics?.current_rain ?? 0}mm`}
+                                            />
+                                            <MiniStats
+                                                icon={<Gauge className="w-3 h-3 text-emerald-500" />}
+                                                label="MOISTURE"
+                                                value={`${loc.metrics?.soil_moisture ?? 0}%`}
+                                            />
+                                            <MiniStats
+                                                icon={<MapPin className="w-3 h-3 text-indigo-500" />}
+                                                label="DEMAND"
+                                                value={`${(loc.demand / 1000).toFixed(0)}kL`}
+                                            />
+                                        </>
+                                    )}
+                                </div>
+
+                                <button
+                                    onClick={() => onDispatch(loc.name)}
+                                    className="w-full bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-[0.1em] py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 transition-all active:scale-95"
+                                >
+                                    <Truck className="w-3.5 h-3.5" />
+                                    Dispatch Resource
+                                </button>
                             </div>
-                        </div>
+                        </Popup>
                     </Marker>
                 ))}
-
-                {/* POPUP */}
-                {selectedCity && (
-                    <Popup
-                        latitude={selectedCity.coords.lat}
-                        longitude={selectedCity.coords.lng}
-                        anchor="top"
-                        onClose={() => setSelectedCity(null)}
-                        closeButton={false}
-                        maxWidth="320px"
-                    >
-                        <div className="p-3 bg-white rounded-xl shadow-2xl border">
-                            <div className="flex justify-between items-center mb-2">
-                                <h3 className="font-bold text-lg">{selectedCity.name}</h3>
-                                <span
-                                    className="px-2 py-0.5 text-[10px] font-bold rounded"
-                                    style={{
-                                        backgroundColor: `${selectedCity.wsi.color}15`,
-                                        color: selectedCity.wsi.color
-                                    }}
-                                >
-                                    WSI: {selectedCity.wsi.score}
-                                </span>
-                            </div>
-
-                            {/* LIVE HEADER */}
-                            <div className="flex items-center gap-2 mb-3 px-2 py-1 rounded-lg border bg-slate-50">
-                                {activeLayer === "GROUNDWATER" ? (
-                                    <>
-                                        <Waves className="w-4 h-4 text-indigo-600" />
-                                        <span className="text-xs font-bold text-indigo-700">
-                                            LIVE GROUNDWATER
-                                        </span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <CloudSun className="w-4 h-4 text-blue-600" />
-                                        <span className="text-xs font-bold text-blue-700">
-                                            LIVE WEATHER
-                                        </span>
-                                    </>
-                                )}
-                            </div>
-
-                            {/* STATS */}
-                            <div className="grid grid-cols-2 gap-3 mb-4">
-                                {activeLayer === "GROUNDWATER" ? (
-                                    <>
-                                        <MiniStats
-                                            icon={<ArrowDown className="w-3.5 h-3.5 text-red-500" />}
-                                            label="GW Level"
-                                            value={`${selectedCity.metrics?.groundwater_level ?? "—"} m`}
-                                        />
-                                        <MiniStats
-                                            icon={<Gauge className="w-3.5 h-3.5 text-amber-500" />}
-                                            label="Recharge"
-                                            value={`${selectedCity.metrics?.recharge_pct ?? "—"} %`}
-                                        />
-                                        <MiniStats
-                                            icon={<Gauge className="w-3.5 h-3.5 text-green-500" />}
-                                            label="Moisture"
-                                            value={`${selectedCity.metrics?.soil_moisture ?? "—"} %`}
-                                        />
-                                        <MiniStats
-                                            icon={<MapPin className="w-3.5 h-3.5 text-indigo-500" />}
-                                            label="Demand"
-                                            value={`${(selectedCity.demand / 1000).toFixed(0)} kL`}
-                                        />
-                                    </>
-                                ) : (
-                                    <>
-                                        <MiniStats
-                                            icon={<CloudRain className="w-3.5 h-3.5 text-blue-500" />}
-                                            label="Rainfall"
-                                            value={`${selectedCity.metrics?.current_rain ?? 0} mm`}
-                                        />
-                                        <MiniStats
-                                            icon={<Gauge className="w-3.5 h-3.5 text-amber-500" />}
-                                            label="Moisture"
-                                            value={`${selectedCity.metrics?.soil_moisture ?? 0} %`}
-                                        />
-                                        <MiniStats
-                                            icon={<MapPin className="w-3.5 h-3.5 text-indigo-500" />}
-                                            label="Demand"
-                                            value={`${(selectedCity.demand / 1000).toFixed(0)} kL`}
-                                        />
-                                    </>
-                                )}
-                            </div>
-
-                            {/* ACTION */}
-                            <button
-                                onClick={() => {
-                                    onDispatch(selectedCity.name);
-                                    setSelectedCity(null);
-                                }}
-                                className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 rounded-lg flex items-center justify-center gap-2"
-                            >
-                                <Truck className="w-4 h-4" />
-                                Dispatch Tanker
-                            </button>
-                        </div>
-                    </Popup>
-                )}
-            </Map>
+            </LeafletMap>
         </div>
     );
 }
 
 function MiniStats({ icon, label, value }) {
     return (
-        <div className="flex items-start gap-2">
-            {icon}
-            <div>
-                <p className="text-[9px] text-slate-500 uppercase font-bold">{label}</p>
-                <p className="text-xs font-bold text-slate-800">{value}</p>
+        <div className="flex flex-col gap-0.5 bg-slate-50 p-2 rounded-xl border border-slate-100/50">
+            <div className="flex items-center gap-1.5">
+                {icon}
+                <p className="text-[8px] text-slate-400 font-black uppercase tracking-tighter">{label}</p>
             </div>
+            <p className="text-xs font-black text-slate-800 pl-4.5">{value}</p>
         </div>
     );
 }
