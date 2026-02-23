@@ -15,15 +15,30 @@ import { useState, useMemo } from "react";
 export default function LogisticsPage() {
     const [searchParams] = useSearchParams();
     const highlightedVillage = searchParams.get("village");
-    const { locations, fleet, allocateTanker } = useWater();
-    const [otpInput, setOtpInput] = useState("");
+    const { locations, fleet = [], allocateTanker, verifyTanker } = useWater();
+    const [verifyingId, setVerifyingId] = useState(null);
+    const [otpInputs, setOtpInputs] = useState({});
 
     const sortedLocations = useMemo(() => {
         return [...locations].sort((a, b) => b.priorityScore - a.priorityScore);
     }, [locations]);
 
-    const handleAllocate = (name) => {
-        allocateTanker(name);
+    const handleAllocate = async (name) => {
+        const success = await allocateTanker(name);
+        if (!success) {
+            alert("Allocation failed. No tankers available.");
+        }
+    };
+
+    const handleVerify = async (tankerId) => {
+        const otp = otpInputs[tankerId];
+        const result = await verifyTanker(tankerId, otp);
+        if (result.success) {
+            setVerifyingId(null);
+            setOtpInputs(prev => ({ ...prev, [tankerId]: "" }));
+        } else {
+            alert(result.error || "Verification failed");
+        }
     };
 
     return (
@@ -48,8 +63,8 @@ export default function LogisticsPage() {
                             <div
                                 key={loc.id}
                                 className={`p-4 rounded-2xl border transition-all ${highlightedVillage === loc.name
-                                        ? "bg-blue-50 border-blue-500 shadow-md ring-2 ring-blue-500/10"
-                                        : "bg-white border-slate-100 hover:border-slate-300"
+                                    ? "bg-blue-50 border-blue-500 shadow-md ring-2 ring-blue-500/10"
+                                    : "bg-white border-slate-100 hover:border-slate-300"
                                     }`}
                             >
                                 <div className="flex justify-between items-start mb-3">
@@ -142,21 +157,28 @@ export default function LogisticsPage() {
                                         </td>
                                         <td className="px-6 py-5">
                                             <div className="flex justify-center flex-col items-center gap-2">
-                                                {tanker.status === "UNLOADING" ? (
-                                                    <div className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-3 py-1 rounded-full">
-                                                        <ShieldCheck size={14} />
-                                                        VERIFIED
+                                                {tanker.status === "VERIFIED" ? (
+                                                    <div className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50/50 px-3 py-1.5 rounded-xl border border-emerald-100">
+                                                        <ShieldCheck size={14} className="text-emerald-500" />
+                                                        SECURED
                                                     </div>
                                                 ) : tanker.status === "AVAILABLE" ? (
-                                                    <span className="text-slate-300">---</span>
+                                                    <span className="text-slate-300 font-bold tracking-widest">---</span>
                                                 ) : (
                                                     <div className="flex items-center gap-2">
                                                         <input
                                                             type="text"
-                                                            placeholder="VERIFY"
-                                                            className="w-16 h-7 text-[10px] bg-slate-100 border border-slate-200 rounded-lg text-center font-mono focus:ring-1 focus:ring-blue-500 transition-all"
+                                                            placeholder="OTP"
+                                                            value={otpInputs[tanker.id] || ""}
+                                                            onChange={(e) => setOtpInputs(prev => ({ ...prev, [tanker.id]: e.target.value }))}
+                                                            className="w-16 h-8 text-[10px] bg-slate-50 border border-slate-200 rounded-lg text-center font-mono focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-300"
                                                         />
-                                                        <button className="text-[10px] font-bold text-blue-600 uppercase hover:underline">Confirm</button>
+                                                        <button
+                                                            onClick={() => handleVerify(tanker.id)}
+                                                            className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:text-blue-700 transition-colors"
+                                                        >
+                                                            Verify
+                                                        </button>
                                                     </div>
                                                 )}
                                             </div>
@@ -190,7 +212,8 @@ function StatusBadge({ status }) {
     const styles = {
         "AVAILABLE": "bg-slate-100 text-slate-500",
         "EN-ROUTE": "bg-blue-100 text-blue-600",
-        "UNLOADING": "bg-emerald-100 text-emerald-600",
+        "UNLOADING": "bg-emerald-100 text-emerald-600 transition-pulse",
+        "VERIFIED": "bg-emerald-500 text-white shadow-lg shadow-emerald-200",
         "MAINTENANCE": "bg-red-100 text-red-600",
     };
 
