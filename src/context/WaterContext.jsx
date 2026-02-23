@@ -11,16 +11,11 @@ export function WaterProvider({ children }) {
     // 🌊 Groundwater state (NEW)
     const [groundwaterData, setGroundwaterData] = useState({});
 
-    const [fleet, setFleet] = useState([
-        { id: "T-101", status: "AVAILABLE", assignment: null, lat: 21.1458, lng: 79.0882 },
-        { id: "T-102", status: "EN-ROUTE", assignment: "Katol", lat: 21.2, lng: 78.8, otpScale: "4321", geofence: "SECURE" },
-        { id: "T-103", status: "AVAILABLE", assignment: null, lat: 21.1458, lng: 79.0882 },
-        { id: "T-104", status: "UNLOADING", assignment: "Hingna", lat: 21.1147, lng: 79.0304, otpScale: "8899", geofence: "SECURE" },
-        { id: "T-105", status: "AVAILABLE", assignment: null, lat: 21.1458, lng: 79.0882 },
-    ]);
+    const [fleet, setFleet] = useState([]);
 
-    // 🔹 Initialize locations with WSI & priority
+    // 🔹 Initialize locations & Fetch Fleet
     useEffect(() => {
+        // Initialize locations
         const data = nagpurData.map((loc) => {
             const wsi = calculateWSI(loc);
             const demand = (loc.population * 40) + (loc.livestock * 30);
@@ -28,7 +23,24 @@ export function WaterProvider({ children }) {
             return { ...loc, wsi, demand, priorityScore: Math.round(priorityScore) };
         });
         setLocations(data);
+
+        // Fetch Fleet from Backend
+        fetchFleet();
     }, []);
+
+    const fetchFleet = async () => {
+        try {
+            const res = await fetch('http://localhost:5000/api/tankers');
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                setFleet(data);
+            } else {
+                console.error("Backend error or invalid format:", data);
+            }
+        } catch (err) {
+            console.error("Failed to fetch fleet:", err);
+        }
+    };
 
     // 🌦 WEATHER UPDATE (UNCHANGED)
     const updateWeatherData = (weatherResults) => {
@@ -107,22 +119,46 @@ export function WaterProvider({ children }) {
         );
     };
 
-    // 🚚 Tanker allocation (UNCHANGED)
-    const allocateTanker = (locationName) => {
-        setFleet(prev => {
-            const availableIndex = prev.findIndex(t => t.status === "AVAILABLE");
-            if (availableIndex === -1) return prev;
+    // 🚚 Tanker allocation (SYNCED WITH BACKEND)
+    const allocateTanker = async (locationName) => {
+        try {
+            const res = await fetch('http://localhost:5000/api/allocate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ villageName: locationName })
+            });
 
-            const newFleet = [...prev];
-            newFleet[availableIndex] = {
-                ...newFleet[availableIndex],
-                status: "EN-ROUTE",
-                assignment: locationName,
-                geofence: "SECURE",
-                otpScale: Math.floor(1000 + Math.random() * 9000).toString()
-            };
-            return newFleet;
-        });
+            if (res.ok) {
+                fetchFleet(); // Refresh fleet data
+                return true;
+            }
+            return false;
+        } catch (err) {
+            console.error("Allocation failed:", err);
+            return false;
+        }
+    };
+
+    // 🛡️ Verify OTP
+    const verifyTanker = async (tankerId, otp) => {
+        try {
+            const res = await fetch('http://localhost:5000/api/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tankerId, otp })
+            });
+
+            if (res.ok) {
+                fetchFleet();
+                return { success: true };
+            } else {
+                const data = await res.json();
+                return { success: false, error: data.error };
+            }
+        } catch (err) {
+            console.error("Verification error:", err);
+            return { success: false, error: 'Network Error' };
+        }
     };
 
     return (
@@ -132,6 +168,8 @@ export function WaterProvider({ children }) {
             setActiveLayer,
             fleet,
             allocateTanker,
+            verifyTanker,
+            refreshFleet: fetchFleet,
             updateWeatherData,
             groundwaterData,
             updateGroundwaterData,
