@@ -6,7 +6,7 @@ import { useWater } from '../context/WaterContext'; // Added import for useWater
 
 // NOTE: Ideally this should be in an .env file.
 // For the prototype, the user can replace this with their own token.
-const MAPBOX_TOKEN = process.env.MAPBOX_TOKEN;
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 export default function MapContainer({ locations, onDispatch }) {
     const { activeLayer } = useWater(); // Added activeLayer from WaterContext
     const [selectedCity, setSelectedCity] = useState(null);
