@@ -17,7 +17,7 @@ import { fetchLocationWeather } from "../services/weatherService";
 import DispatchToast from "./DispatchToast";
 
 export default function IntelligencePage() {
-    const { locations, activeLayer, setActiveLayer, updateWeatherData } = useWater();
+    const { locations, activeLayer, setActiveLayer, updateWeatherData, updateNDVIProxy } = useWater();
     const [isSimulating, setIsSimulating] = useState(false);
     const [toast, setToast] = useState(null);
     const navigate = useNavigate();
@@ -45,9 +45,53 @@ export default function IntelligencePage() {
         }
     };
 
+    const fetchAllNDVI = async () => {
+        setIsSimulating(true);
+        const proxyResults = {};
+
+        try {
+            await Promise.all(locations.map(async (loc) => {
+                const response = await fetch(
+                    `https://api.weatherapi.com/v1/current.json?key=9dcb730c730748b2bb3183914262202&q=${loc.coords.lat},${loc.coords.lng}`
+                );
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const humidity = data.current.humidity;
+                    const precip_mm = data.current.precip_mm;
+
+                    // Logic:
+                    // SoilMoisture = (humidity * 0.4) + (precip_mm * 0.6)
+                    // SoilMoistureIndex = SoilMoisture / 100
+                    // WSI = 1 - SoilMoistureIndex
+                    const soilMoisture = ((humidity * 0.4) + (precip_mm * 0.6)).toFixed(2);
+                    const soilMoistureIndex = soilMoisture / 100;
+                    const wsi_realtime = (1 - soilMoistureIndex).toFixed(2);
+
+                    proxyResults[loc.id] = {
+                        soilMoisture: soilMoisture,
+                        wsi: wsi_realtime
+                    };
+                }
+            }));
+
+            updateNDVIProxy(proxyResults);
+            setActiveLayer("NDVI");
+            setToast({ type: "success", message: "Real-time Water Stress Index (WSI) calculated for all regions." });
+            setTimeout(() => setToast(null), 4000);
+        } catch (error) {
+            setToast({ type: "error", message: "Failed to fetch real-time data." });
+            setTimeout(() => setToast(null), 4000);
+        } finally {
+            setIsSimulating(false);
+        }
+    };
+
     const handleLayerChange = (layer) => {
         if (layer === "WEATHER") {
             fetchAllWeather();
+        } else if (layer === "NDVI") {
+            fetchAllNDVI();
         } else {
             setIsSimulating(true);
             setTimeout(() => {
@@ -59,12 +103,16 @@ export default function IntelligencePage() {
     };
 
     const topRisk = [...locations]
-        .sort((a, b) => b.priorityScore - a.priorityScore)
+        .sort((a, b) => {
+            const scoreA = a.metrics?.wsi_realtime ? parseFloat(a.metrics.wsi_realtime) * 100 : a.priorityScore;
+            const scoreB = b.metrics?.wsi_realtime ? parseFloat(b.metrics.wsi_realtime) * 100 : b.priorityScore;
+            return scoreB - scoreA;
+        })
         .slice(0, 5);
 
     const layerButtons = [
         { id: "RISK", name: "Risk Map", icon: <AlertTriangle size={16} /> },
-        { id: "NDVI", name: "NDVI Sat", icon: <Satellite size={16} /> },
+        { id: "NDVI", name: "Soil Moisture", icon: <Satellite size={16} /> },
         { id: "WEATHER", name: "Weather", icon: <CloudSun size={16} /> },
         { id: "GROUNDWATER", name: "Groundwater", icon: <Waves size={16} /> },
     ];
@@ -103,7 +151,7 @@ export default function IntelligencePage() {
                                         <div>
                                             <h3 className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{loc.name}</h3>
                                             <div className="flex items-center gap-2 mt-1">
-                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">WSI: {loc.wsi.score}</span>
+                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">WSI: {loc.metrics?.wsi_realtime || loc.wsi.score}</span>
                                                 <div className="w-1 h-1 rounded-full bg-slate-200" />
                                                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Pop: {(loc.population / 1000).toFixed(0)}k</span>
                                             </div>
