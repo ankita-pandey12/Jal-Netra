@@ -9,7 +9,8 @@ import {
     MapPin,
     Truck,
     Waves,
-    CloudSun
+    CloudSun,
+    AlertTriangle
 } from 'lucide-react';
 import { useWater } from '../context/WaterContext';
 
@@ -116,6 +117,11 @@ export default function MapContainer({ locations, onDispatch }) {
                                             <Waves className="w-3.5 h-3.5 text-blue-600" />
                                             <span className="text-[10px] font-black text-blue-700 uppercase tracking-widest">GROUNDWATER TELEMETRY</span>
                                         </>
+                                    ) : activeLayer === "NDVI" ? (
+                                        <>
+                                            <Gauge className="w-3.5 h-3.5 text-red-600" />
+                                            <span className="text-[10px] font-black text-red-700 uppercase tracking-widest">REAL-TIME WATER STRESS INDEX (WSI)</span>
+                                        </>
                                     ) : (
                                         <>
                                             <CloudSun className="w-3.5 h-3.5 text-amber-600" />
@@ -138,6 +144,38 @@ export default function MapContainer({ locations, onDispatch }) {
                                                 label="RECHARGE"
                                                 value={`${loc.metrics?.recharge_pct ?? "—"}%`}
                                             />
+                                            <MiniStats
+                                                icon={<MapPin className="w-3 h-3 text-indigo-500" />}
+                                                label="DEMAND"
+                                                value={`${(loc.demand / 1000).toFixed(0)}kL`}
+                                            />
+                                        </>
+                                    ) : activeLayer === "NDVI" ? (
+                                        <>
+                                            <div className="col-span-2 space-y-2">
+                                                <MiniStats
+                                                    icon={<Gauge className="w-3 h-3 text-emerald-500" />}
+                                                    label="Soil Moisture"
+                                                    value={`${loc.metrics?.soil_moisture_realtime ?? "0.00"} %`}
+                                                />
+                                                <MiniStats
+                                                    icon={<AlertTriangle className="w-3 h-3 text-red-500" />}
+                                                    label="Water Stress Index (WSI)"
+                                                    value={loc.metrics?.wsi_realtime ?? "0.00"}
+                                                />
+                                                <div className="px-3 py-1 bg-slate-100 rounded-lg">
+                                                    <p className="text-[8px] font-black uppercase text-slate-400">Stress Level</p>
+                                                    <p className={`text-[10px] font-black uppercase ${parseFloat(loc.metrics?.wsi_realtime) > 0.7 ? "text-red-600" :
+                                                        parseFloat(loc.metrics?.wsi_realtime) > 0.5 ? "text-orange-600" :
+                                                            parseFloat(loc.metrics?.wsi_realtime) > 0.2 ? "text-amber-600" : "text-emerald-600"
+                                                        }`}>
+                                                        {parseFloat(loc.metrics?.wsi_realtime) <= 0.2 && "No Stress"}
+                                                        {parseFloat(loc.metrics?.wsi_realtime) > 0.2 && parseFloat(loc.metrics?.wsi_realtime) <= 0.5 && "Mild Stress"}
+                                                        {parseFloat(loc.metrics?.wsi_realtime) > 0.5 && parseFloat(loc.metrics?.wsi_realtime) <= 0.7 && "Moderate Stress"}
+                                                        {parseFloat(loc.metrics?.wsi_realtime) > 0.7 && "Severe Stress"}
+                                                    </p>
+                                                </div>
+                                            </div>
                                             <MiniStats
                                                 icon={<MapPin className="w-3 h-3 text-indigo-500" />}
                                                 label="DEMAND"
